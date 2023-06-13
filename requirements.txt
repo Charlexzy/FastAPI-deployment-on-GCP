@@ -5,3 +5,6 @@ typing-extensions>=3.7.4
 fastapi
 uvicorn
 numpy
+python-multipart
+tensorflow-serving-api==2.5.0
+matplotlib
