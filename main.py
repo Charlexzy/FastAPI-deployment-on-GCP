@@ -4,6 +4,16 @@ from io import BytesIO
 import numpy as np
 import tensorflow as tf
 
+# Define the same data augmentation parameters as during training
+data_augmentation = tf.keras.preprocessing.image.ImageDataGenerator(
+    rescale=1./255,
+    rotation_range=10,
+    width_shift_range=0.1,
+    height_shift_range=0.1,
+    shear_range=0.2,
+    zoom_range=0.2,
+    horizontal_flip=True
+)
 
 app = FastAPI()
 
