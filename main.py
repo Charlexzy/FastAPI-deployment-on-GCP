@@ -21,7 +21,9 @@ app.add_middleware(
     allow_headers=["*"]
 )
 
-MODEL = tf.keras.models.load_model("../potatoes.h5", custom_objects={'tf': tf})
+# MODEL = tf.keras.models.load_model("../potatoes.h5", custom_objects={'tf': tf})
+MODEL_PATH = "gs://potatodiseaseclassifier/models/potatoes.h5"
+MODEL = tf.keras.models.load_model(MODEL_PATH, custom_objects={'tf': tf})
 
 CLASS_NAMES = ["Early Blight", "Late Blight", "Healthy"]
 
