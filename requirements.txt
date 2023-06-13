@@ -1,0 +1,7 @@
+tensorflow>==2.5.0
+google-cloud-storage==1.16.1
+Pillow
+typing-extensions>=3.7.4
+fastapi
+uvicorn
+numpy
