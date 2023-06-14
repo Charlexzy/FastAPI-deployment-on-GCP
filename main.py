@@ -1,7 +1,10 @@
 from google.cloud import storage
+from fastapi import FastAPI, File, UploadFile
 import tensorflow as tf
 from PIL import Image
 import numpy as np
+
+app = FastAPI()
 
 model = None
 class_names = ["Early Blight", "Late Blight", "Healthy"]
