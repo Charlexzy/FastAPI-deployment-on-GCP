@@ -1,74 +1,49 @@
-from fastapi import FastAPI, File, UploadFile
-from fastapi.middleware.cors import CORSMiddleware
-import uvicorn  # ASGI
-import numpy as np
-from io import BytesIO
-from PIL import Image
+from google.cloud import storage
 import tensorflow as tf
+from PIL import Image
+import numpy as np
+
+model = None
+class_names = ["Early Blight", "Late Blight", "Healthy"]
+
+BUCKET_NAME = "gs://potatodiseaseclassifier" 
 
 
-app = FastAPI()
+def download_blob(bucket_name, source_blob_name, destination_file_name):
+    """Downloads a blob from the bucket."""
+    storage_client = storage.Client()
+    bucket = storage_client.bucket(bucket_name)
+    blob = bucket.blob(source_blob_name)
 
-origins = [
-    "http://localhost",
-    "http://localhost:3000",
-]
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=origins,
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"]
-)
+    blob.download_to_filename(destination_file_name)
 
-# MODEL = tf.keras.models.load_model("../potatoes.h5", custom_objects={'tf': tf})
-MODEL_PATH = "gs://potatodiseaseclassifier/models/potatoes.h5"
-MODEL = tf.keras.models.load_model(MODEL_PATH, custom_objects={'tf': tf})
+    print(f"Blob {source_blob_name} downloaded to {destination_file_name}.")
 
-CLASS_NAMES = ["Early Blight", "Late Blight", "Healthy"]
 
-# Define the same data augmentation parameters as during training
-data_augmentation = tf.keras.preprocessing.image.ImageDataGenerator(
-    rescale=1./255,
-    rotation_range=10,
-    width_shift_range=0.1,
-    height_shift_range=0.1,
-    shear_range=0.2,
-    zoom_range=0.2,
-    horizontal_flip=True
-)
+def predict(request):
+    global model
+    if model is None:
+        download_blob(
+            BUCKET_NAME,
+            "models/potatoes.h5",
+            "/tmp/potatoes.h5",
+        )
+        model = tf.keras.models.load_model("/tmp/potatoes.h5")
 
-def preprocess_image(image):
-    # Resize the image to the desired dimensions
-    image = image.resize((256, 256))
-    # Convert the image to an array
-    img_array = tf.keras.preprocessing.image.img_to_array(image)
-    # Expand the dimensions of the image to match the expected input shape
-    img_array = np.expand_dims(img_array, axis=0)
-    # Apply data augmentation and normalization
-    img_array = data_augmentation.flow(img_array, shuffle=False).next()
-    return img_array
+    image = request.files["file"]
 
-@app.post("/predict")
-async def predict(
-    file: UploadFile = File(...)
-):
-    # Read the uploaded file as an image
-    image = Image.open(BytesIO(await file.read()))
-    
-    # Preprocess the image
-    img_array = preprocess_image(image)
-    
-    # Make predictions by calling the loaded model on the preprocessed image
-    predictions = MODEL.predict(img_array)
-    
-    predicted_class = CLASS_NAMES[np.argmax(predictions[0])]
-    confidence = float(np.max(predictions[0]))
+    image = np.array(
+        Image.open(image).convert("RGB").resize((256, 256))  # Image resizing
+    )
 
-    return {
-        'class': predicted_class,
-        'confidence': confidence
-    }
+    image = image / 255  # Normalize the image in the range of 0 to 1
 
-if __name__ == "__main__":
-    uvicorn.run(app, host='localhost', port=8000)
+    img_array = tf.expand_dims(image, 0)
+    predictions = model.predict(img_array)
+
+    print("Predictions:", predictions)
+
+    predicted_class = class_names[np.argmax(predictions[0])]
+    confidence = round(100 * np.max(predictions[0]), 2)
+
+    return {"class": predicted_class, "confidence": confidence}
